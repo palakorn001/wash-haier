@@ -25,7 +25,7 @@
 
 //ตั้ง Serial
 //ตั้งเวลาโปรแกรม 1,2
-String SerialNumber = "2201910009";
+String SerialNumber = "2201910006";
 int t_pro1 = 25;
 int t_pro2 = 5;
 
@@ -57,7 +57,7 @@ int Second = 0; //วินาที
 int Minute = 0; //นาที
 const long interval = 1000;
 //ตั้งเวลาอบ1
-int set_time = 5;
+int set_time = 1;
 bool run_time = false;
 
 void software_reboot()
@@ -119,14 +119,6 @@ void loop()
         run_time = true;
     }
     delay(2000);
-    // relay_start();
-} //loop
-
-///////////////////////////////////////////////loop 2 config
-void loop1()
-{
-    onReceive(LoRa.parsePacket());
-    delay(10);
     while (run_time != false)
     {
         if (currentMillis - previousMillis >= interval)
@@ -154,14 +146,19 @@ void loop1()
         Serial.print(" : ");
         Serial.println(set_time);
 
-        delay(800);
         if (check_wash() == true)
         {
-            relay_start(3);
             run_time = false;
             break;
         }
     }
+} //loop
+
+///////////////////////////////////////////////loop 2 config
+void loop1()
+{
+    onReceive(LoRa.parsePacket());
+    delay(10);
 }
 
 //-------------------------------void-------------------------------------------//
@@ -186,6 +183,12 @@ void onReceive(int packetSize)
     data2 = L2.substring(0, L2.indexOf(","));
     Serial.print("data2 =");
     Serial.print(data2);
+    Serial.println();
+
+    String L4 = incoming.substring(incoming.indexOf("PRO=") + 4);
+    data4 = L4.substring(0, L4.indexOf(","));
+    Serial.print("PRO =");
+    Serial.print(data4);
     Serial.println();
 
     if (check_wash())
@@ -221,12 +224,6 @@ void onReceive(int packetSize)
             data3 = L3.substring(0, L3.indexOf(","));
             Serial.print("Str_log_id =");
             Serial.print(data3);
-            Serial.println();
-
-            String L4 = incoming.substring(incoming.indexOf("RO=") + 3);
-            data4 = L4.substring(0, L4.indexOf(","));
-            Serial.print("PRO =");
-            Serial.print(data4);
             Serial.println();
 
             if (data2 == SerialNumber)
@@ -308,14 +305,10 @@ void onReceive(int packetSize)
                 if (data4 == "1")
                 {
                     set_time = t_pro1;
-                    Serial.print("set_time : ")
-                        Serial.println(set_time);
                 }
                 if (data4 == "2")
                 {
                     set_time = t_pro2;
-                    Serial.print("set_time : ")
-                        Serial.println(set_time);
                 }
                 run_time = true; //เพื่อสั่งให้นับเวลาการซัก
             }
@@ -385,7 +378,7 @@ void relay_start(int range)
         digitalWrite(delay1, HIGH);
         delay(1000);
         digitalWrite(delay1, LOW);
-        delay(10000);
+        delay(1000);
         break;
     }
 }
