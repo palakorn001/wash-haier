@@ -2,6 +2,6 @@
     "board": "arduino:avr:pro",
     "configuration": "cpu=16MHzatmega328",
     "programmer": "AVRISP mkII",
-    "port": "COM4",
+    "port": "COM5",
     "sketch": "washway_promini_dryer.ino"
 }

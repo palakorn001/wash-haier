@@ -26,10 +26,8 @@
 //ตั้ง Serial
 //ตั้งเวลาโปรแกรม 1,2
 String SerialNumber = "2201910009";
-int t_pro1 = 1;
-int t_pro2 = 10;
-
-/*-------------------------------------------*/
+int t_pro1 = 25;
+int t_pro2 = 5;
 
 String BAND = "433"; // ตั้งค่า ยานความถี่รับส่งข้อมูล
 String send_statuswash = "";
@@ -50,26 +48,18 @@ unsigned long statuswash;
 int timecheck = 0;
 
 int statuswash1 = 0;
-int startwash = 0;
+int startwast = 0;
 char HP;
-
 //ตัวแปลเวลา
 unsigned long currentMillis;
 unsigned long previousMillis = 0;
-uint8_t Second = 0; //วินาที
-uint8_t Minute = 0; //นาที
+int Second = 0; //วินาที
+int Minute = 0; //นาที
 const long interval = 1000;
 //ตั้งเวลาอบ1
-uint8_t set_time = 1;
+int set_time = 5;
 bool run_time = false;
-//ตัวแปล data รับจาก lora
-String incoming = "";
-String data1 = "";
-String data2 = "";
-String data3 = "";
-String data4 = "";
-String logid = "";
-boolean b_check_wash = true;
+
 void software_reboot()
 {
     asm volatile("  jmp 0");
@@ -105,7 +95,6 @@ void setup()
     } //if
     Serial.println("Lora1 CONNECTED");
     Scheduler.startLoop(loop1);
-    Scheduler.startLoop(loop2);
 
 } //setup
 
@@ -125,7 +114,8 @@ void loop()
     if (read_test == 0)
     {
         relay_start(program_wash1);
-        t_pro1 = 1 ;
+        delay(10);
+        t_pro1 = 1;
         run_time = true;
     }
     delay(2000);
@@ -137,10 +127,6 @@ void loop1()
 {
     onReceive(LoRa.parsePacket());
     delay(10);
-}
-
-void loop2()
-{
     while (run_time != false)
     {
         if (currentMillis - previousMillis >= interval)
@@ -153,38 +139,43 @@ void loop2()
                 Minute = Minute + 1;
             }
         }
-        if (Minute == set_time)
+
+        if (Minute >= set_time)
         {
             relay_start(3);
-            //Serial.println("finish");
+            Serial.println("finish");
             Minute = 0;
+            Second = 0;
             run_time = false;
         }
         Serial.print(Second);
-        Serial.print("   ");
+        Serial.print(" : ");
         Serial.print(Minute);
-        Serial.println("");
-        delay(1000);
-        if (check_wash()== true)
+        Serial.print(" : ");
+        Serial.println(set_time);
+
+        delay(800);
+        if (check_wash() == true)
         {
+            relay_start(3);
             run_time = false;
             break;
         }
     }
-    delay(1000);
 }
+
 //-------------------------------void-------------------------------------------//
 void onReceive(int packetSize)
 {
     while (packetSize == 0)
         return; // if there's no packet, return ถ้าไม่มีข้อมูลรีเทล
                 //  byte handshake = LoRa.read();
-    incoming = "";
-    data1 = "";
-    data2 = "";
-    data3 = "";
-    data4 = "";
-    logid = "";
+    String incoming = "";
+    String data1 = "";
+    String data2 = "";
+    String data3 = "";
+    String data4 = "";
+    String logid = "";
     int updatband_delay = 0;
     while (LoRa.available())
     {
@@ -196,13 +187,16 @@ void onReceive(int packetSize)
     Serial.print("data2 =");
     Serial.print(data2);
     Serial.println();
-    check_wash();
-    if (b_check_wash == true)
+
+    if (check_wash())
     {
         Serial.println("ready");
-        send_statuswash = "1111";       
+        send_statuswash = "1111";
+        digitalWrite(delay2, LOW);
+        statuswash1 = 1;
+        startwast = 0;
         if (data2 == SerialNumber)
-        {           
+        {
             Serial.println("handshake == Address");
             LoRa.beginPacket();
             //           LoRa.write(Address);
@@ -229,41 +223,51 @@ void onReceive(int packetSize)
             Serial.print(data3);
             Serial.println();
 
-            String L4 = incoming.substring(incoming.indexOf("PRO=") + 4);
+            String L4 = incoming.substring(incoming.indexOf("RO=") + 3);
             data4 = L4.substring(0, L4.indexOf(","));
             Serial.print("PRO =");
             Serial.print(data4);
             Serial.println();
 
-            Serial.println("Starting");
-            if (data4 == "1")
+            if (data2 == SerialNumber)
             {
-
-                relay_start(program_wash1);
+                startwast = 1;
+                Serial.println("start");
+                if (startwast == 1 & statuswash1 == 1)
+                {
+                    if (data4 == "1")
+                    {
+                        relay_start(program_wash1);
+                        set_time = t_pro1;
+                    }
+                    if (data4 == "2")
+                    {
+                        relay_start(program_wash2);
+                        set_time = t_pro2;
+                    }
+                }
+                //delay(1000);
+                for (int i = 0; i < 20; ++i)
+                {
+                    EEPROM.put(100 + i, data3[i]);
+                }
+                Serial.println("---------- update_eeprom ----------");
             }
-            if (data4 == "2")
+            else
             {
-
-                relay_start(program_wash2);
+                Serial.println("ready");
+                startwast = 0;
             }
 
-            for (int i = 0; i < 20; ++i)
-            {
-                EEPROM.put(100 + i, data3[i]);
-            }
-            Serial.println("---------- update_eeprom ----------");
             delay(100);
         }
-        else
-        {
-            Serial.println("ready");
-        }       
-      }
+    }
     else
-      {
+    {
         Serial.println("RUN");
         send_statuswash = "2222";
-
+        statuswash1 = 0;
+        startwast = 0;
         if (data2 == SerialNumber)
         {
             Serial.println("Reading EEPROM device");
@@ -272,17 +276,23 @@ void onReceive(int packetSize)
                 logid += char(EEPROM.read(i));
             }
             Serial.print("logid : ");
-            Serial.println(logid);     
+            Serial.println(logid);
+            String L2 = incoming.substring(incoming.indexOf("SN=") + 3);
+            data2 = L2.substring(0, L2.indexOf(","));
+            Serial.print("data2 =");
+            Serial.print(data2);
+            Serial.println();
 
             String L3 = incoming.substring(incoming.indexOf("LI=") + 3);
             data3 = L3.substring(0, L3.indexOf(","));
             Serial.print("Str_log_id =");
             Serial.print(data3);
             Serial.println();
+
             String l_log = logid.c_str();
             if (data3 == l_log)
             {
-                
+                startwast = 1;
                 LoRa.beginPacket();
                 LoRa.print("SN=");
                 LoRa.print(SerialNumber);
@@ -295,6 +305,18 @@ void onReceive(int packetSize)
                 LoRa.print(",");
                 LoRa.endPacket();
                 delay(100);
+                if (data4 == "1")
+                {
+                    set_time = t_pro1;
+                    Serial.print("set_time : ")
+                        Serial.println(set_time);
+                }
+                if (data4 == "2")
+                {
+                    set_time = t_pro2;
+                    Serial.print("set_time : ")
+                        Serial.println(set_time);
+                }
                 run_time = true; //เพื่อสั่งให้นับเวลาการซัก
             }
             else
@@ -312,10 +334,8 @@ void onReceive(int packetSize)
                 LoRa.print(",");
                 LoRa.endPacket();
                 delay(100);
-                //  run_time = false;
-            } 
+            }
         }
-       
     }
 }
 //--------------------------------------------------------------------------//
@@ -331,14 +351,14 @@ void relay_start(int range)
         digitalWrite(delay1, HIGH);
         delay(1000);
         digitalWrite(delay1, LOW);
-        delay(10000);
+        delay(3000);
         digitalWrite(delay3, HIGH);
         delay(500);
         digitalWrite(delay3, LOW);
         delay(1000);
-        set_time = t_pro1;
         break;
     case 2:
+
         Serial.print("case");
         Serial.println(range);
         digitalWrite(delay1, LOW);
@@ -346,12 +366,12 @@ void relay_start(int range)
         digitalWrite(delay1, HIGH);
         delay(1000);
         digitalWrite(delay1, LOW);
-        delay(10000);
+        delay(3000);
         digitalWrite(delay3, HIGH);
         delay(500);
         digitalWrite(delay3, LOW);
         delay(500);
-        set_time = t_pro2;
+
         break;
     case 3: //stop
         Serial.print("case");
@@ -371,31 +391,27 @@ void relay_start(int range)
 }
 
 //FUNCTION CHECK WASH
-bool  check_wash()
+bool check_wash()
 {
     /*CHECK WASH
  * ฟังชันการเช็คสถาณะเครื่องซักผ้า
  * ถ้าสถาณะเครื่องซักผ้า พร้อมใช้งานหรือ ปิดอยู่ ให้ค่าเป็นจริง คือ = 1
  * ถ้าสถาณะเครื่องซักผ้า ไม่พร้อม หรือ เปิดอยู่ ให้ค่าเป็นเท็จ คือ = 0
  */
-  //  
     statuswash = pulseIn(wash1, HIGH, 1000000);
     float wash = statuswash / 100.00;
-    Serial.print("P : ");
     Serial.println(wash);
     if (wash == 0)
     {
-        Serial.println("ready");
-        delay(1000);        
-        b_check_wash = true;
+        // Serial.println("ready");
+        // digitalWrite(delay2, LOW);
+        delay(1000);
+        return true;
     }
-    if (wash > 2)
+    if (wash >= 2)
     {
-        Serial.println("stop");
-        delay(1000);       
-        b_check_wash = false;
+        // Serial.println("stop");
+        delay(1000);
+        return false;
     }
-    
-   return ;
-
 }
